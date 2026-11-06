@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - HAMS Operations</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="bg-light">
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom shadow-sm mb-3">
+            <div class="container">
+                <a class="navbar-brand fw-bold text-primary" asp-controller="Reception" asp-action="CheckIn">HAMS Operations</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
+                    <ul class="navbar-nav flex-grow-1">
+                        <li class="nav-item">
+                            <a class="nav-link text-dark fw-semibold" asp-controller="Reception" asp-action="CheckIn">Tiếp Đón & Check-In</a>
+                        </li>
+                    </ul>
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="navbar-text small text-muted">
+                            Tài khoản: <strong>Minh Đức (Lễ tân)</strong>
+                        </span>
+                        <a asp-controller="Reception" asp-action="ResetDemo" class="btn btn-outline-danger btn-sm fw-semibold" onclick="return confirm('Bạn có chắc muốn xóa dữ liệu tiếp đón hiện tại và đưa hệ thống về trạng thái ban đầu để demo lại?');">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Reset Demo
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted bg-white py-3 mt-4">
+        <div class="container text-center small">
+            &copy; 2026 - HAMS Clinic Management System - Cổng Phân Hệ Vận Hành Lễ Tân
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

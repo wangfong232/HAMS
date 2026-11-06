@@ -1,0 +1,326 @@
+@model HAMSPatient.Models.SelectSlotViewModel
+@{
+    ViewData["Title"] = "Chọn Khung Giờ Khám";
+    bool hasHeldSlot = Model.CurrentHeldSlot != null && Model.RemainingSeconds > 0;
+}
+
+<div class="container py-4">
+    <!-- Thong tin Bac si -->
+    <div class="card border-1 mb-4 bg-primary text-white shadow-sm rounded-3">
+        <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <a asp-action="Search" class="btn btn-sm btn-light mb-2"><i class="bi bi-arrow-left"></i> Quay lại tìm kiếm</a>
+                <h3 class="fw-bold mb-1">@Model.AcademicTitle @Model.DoctorName</h3>
+                <p class="opacity-75 mb-0">Chuyên khoa: <strong>@Model.DepartmentName</strong> | Ngày khám: <strong>@Model.SelectedDate.ToString("dd/MM/yyyy")</strong></p>
+            </div>
+            <div class="text-end">
+                <span class="badge bg-white text-primary fs-6 px-3 py-2">Giá khám: @Model.PricePerSlot.ToString("N0") VNĐ</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Thanh thong bao giu cho & Dem nguoc -->
+    <div id="countdownAlert" class="mb-4 alert alert-warning alert-dismissible fade show border-1 shadow-sm @(hasHeldSlot ? "" : "d-none")" role="alert">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-stopwatch-fill fs-3 text-warning me-3"></i>
+                <div>
+                    <div>Bạn đang giữ khung giờ: <strong id="heldTimeText" class="text-primary fs-5">@(hasHeldSlot ? $"{Model.CurrentHeldSlot!.StartTime:hh\\:mm} - {Model.CurrentHeldSlot.EndTime:hh\\:mm}" : "")</strong></div>
+                    <small class="text-muted">Thời gian giữ chỗ còn lại: <span id="timerDisplay" class="fw-bold text-danger fs-6">10:00</span> (Hệ thống tự động giải phóng khi hết giờ)</small>
+                </div>
+            </div>
+            <a asp-action="Confirm" id="btnProceedConfirm" class="btn btn-success fw-bold px-4 py-2">
+                Xác nhận thông tin đặt lịch <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Hop thoai thong bao xung dot OCC 409 -->
+    <div id="conflictAlert" class="mb-4 alert alert-danger border-1 shadow-sm d-none" role="alert">
+        <div class="d-flex align-items-start">
+            <i class="bi bi-exclamation-octagon-fill fs-3 text-danger me-3"></i>
+            <div class="flex-grow-1">
+                <h5 class="alert-heading fw-bold mb-1"><i class="bi bi-shield-lock me-1"></i>Xung Đột Đồng Thời (Optimistic Concurrency Control - OCC 409)</h5>
+                <p id="conflictMessage" class="mb-2">Rất tiếc! Khung giờ này vừa có bệnh nhân khác giữ trước.</p>
+                <div id="alternativeSlotsContainer" class="d-none">
+                    <span class="fw-semibold text-dark small d-block mb-1">Gợi ý các khung giờ còn trống gần nhất:</span>
+                    <div id="alternativeButtons" class="d-flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+            <button type="button" class="btn-close" onclick="document.getElementById('conflictAlert').classList.add('d-none')"></button>
+        </div>
+    </div>
+
+    <!-- Grid Khung Gio Kham -->
+    <div class="row g-4">
+        <!-- Ca Sang -->
+        <div class="col-md-6">
+            <div class="card border-1 shadow-sm h-100 rounded-3">
+                <div class="card-header bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-primary mb-0"><i class="bi bi-sun me-1"></i> Ca Sáng (08:00 - 12:00)</h5>
+                    <span class="badge bg-light text-muted border">16 slots</span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        @foreach (var slot in Model.MorningSlots)
+                        {
+                            var btnClass = slot.IsHeldByCurrentUser ? "btn-success active" : (slot.Status == "Open" ? "btn-outline-success" : "btn-light text-muted border disabled");
+                            var labelText = slot.IsHeldByCurrentUser ? "Đang chọn" : (slot.Status == "Open" ? "Còn trống" : (slot.Status == "Hold" || slot.Status == "Held" ? "Người khác giữ" : "Đã đặt"));
+
+                            <div class="col-6 col-sm-4">
+                                <button type="button"
+                                        id="slot-btn-@slot.SlotId"
+                                        class="btn w-100 py-2 slot-btn @btnClass"
+                                        data-slot-id="@slot.SlotId"
+                                        data-time="@slot.StartTime.ToString(@"hh\:mm") - @slot.EndTime.ToString(@"hh\:mm")"
+                                        data-row-version="@slot.RowVersion"
+                                        @(slot.IsClickable ? "" : "disabled")>
+                                    <div class="fw-bold">@slot.StartTime.ToString(@"hh\:mm") - @slot.EndTime.ToString(@"hh\:mm")</div>
+                                    <small class="slot-status-label d-block">@labelText</small>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ca Chieu -->
+        <div class="col-md-6">
+            <div class="card border-1 shadow-sm h-100 rounded-3">
+                <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-primary mb-0"><i class="bi bi-sunset me-1"></i> Ca Chiều (13:00 - 17:00)</h5>
+                    <span class="badge bg-light text-muted border">16 slots</span>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        @foreach (var slot in Model.AfternoonSlots)
+                        {
+                            var btnClass = slot.IsHeldByCurrentUser ? "btn-success active" : (slot.Status == "Open" ? "btn-outline-success" : "btn-light text-muted border disabled");
+                            var labelText = slot.IsHeldByCurrentUser ? "Đang chọn" : (slot.Status == "Open" ? "Còn trống" : (slot.Status == "Hold" || slot.Status == "Held" ? "Người khác giữ" : "Đã đặt"));
+
+                            <div class="col-6 col-sm-4">
+                                <button type="button"
+                                        id="slot-btn-@slot.SlotId"
+                                        class="btn w-100 py-2 slot-btn @btnClass"
+                                        data-slot-id="@slot.SlotId"
+                                        data-time="@slot.StartTime.ToString(@"hh\:mm") - @slot.EndTime.ToString(@"hh\:mm")"
+                                        data-row-version="@slot.RowVersion"
+                                        @(slot.IsClickable ? "" : "disabled")>
+                                    <div class="fw-bold">@slot.StartTime.ToString(@"hh\:mm") - @slot.EndTime.ToString(@"hh\:mm")</div>
+                                    <small class="slot-status-label d-block">@labelText</small>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+<script>
+    let countdownInterval = null;
+
+    // Khoi tao SignalR ket noi Realtime
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/bookingHub")
+        .withAutomaticReconnect()
+        .build();
+
+    connection.on("SlotStatusChanged", function (data) {
+        applySlotStatusChange(data.slotId, data.status, data.newRowVersion);
+    });
+
+    connection.start().catch(err => {
+        console.warn("SignalR ket noi that bai, su dung co che polling dong bo:", err);
+    });
+
+    function applySlotStatusChange(slotId, status, newRowVersion) {
+        const btn = document.getElementById('slot-btn-' + slotId);
+        if (!btn) return;
+
+        // Neu slot dang duoc giu boi chinh nguoi dung nay thi giu nguyen trang thai active
+        if (btn.classList.contains('active')) {
+            if (newRowVersion) {
+                btn.setAttribute('data-row-version', newRowVersion);
+            }
+            if (status === 'Open') {
+                btn.className = 'btn w-100 py-2 slot-btn btn-outline-success';
+                btn.removeAttribute('disabled');
+                btn.querySelector('.slot-status-label').innerText = 'Còn trống';
+                document.getElementById('countdownAlert').classList.add('d-none');
+                if (countdownInterval) clearInterval(countdownInterval);
+            }
+            return;
+        }
+
+        if (status === "Open") {
+            btn.className = "btn w-100 py-2 slot-btn btn-outline-success";
+            btn.removeAttribute("disabled");
+            btn.querySelector('.slot-status-label').innerText = "Còn trống";
+            if (newRowVersion) {
+                btn.setAttribute('data-row-version', newRowVersion);
+            }
+        } else if (status === "Hold" || status === "Held") {
+            btn.className = "btn w-100 py-2 slot-btn btn-light text-muted border disabled";
+            btn.setAttribute("disabled", "disabled");
+            btn.querySelector('.slot-status-label').innerText = "Người khác vừa giữ";
+        } else if (status === "Booked") {
+            btn.className = "btn w-100 py-2 slot-btn btn-light text-muted border disabled";
+            btn.setAttribute("disabled", "disabled");
+            btn.querySelector('.slot-status-label').innerText = "Đã đặt";
+        }
+    }
+
+    // Polling dong bo dinh ky 3 giay (dam bao luon real-time ngay ca khi mang rot ket noi SignalR)
+    setInterval(() => {
+        fetch(`/Booking/GetSlotStatuses?doctorId=@Model.DoctorId&date=@Model.SelectedDate.ToString("yyyy-MM-dd")`)
+            .then(res => res.json())
+            .then(slots => {
+                slots.forEach(s => {
+                    const btn = document.getElementById('slot-btn-' + s.slotId);
+                    if (!btn) return;
+
+                    if (s.status === "MyHold") {
+                        if (!btn.classList.contains('active')) {
+                            btn.className = "btn w-100 py-2 slot-btn btn-success active";
+                            btn.removeAttribute("disabled");
+                            btn.querySelector('.slot-status-label').innerText = "Đang chọn";
+                        }
+                        return;
+                    }
+
+                    applySlotStatusChange(s.slotId, s.status, s.rowVersion);
+                });
+            })
+            .catch(() => {});
+    }, 3000);
+
+    // Khoi tao dem nguoc neu dang co slot giu
+    const initialSeconds = @Model.RemainingSeconds;
+    if (initialSeconds > 0) {
+        startCountdown(initialSeconds);
+    }
+
+    document.querySelectorAll('.slot-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            if (this.classList.contains('active')) return;
+
+            const slotId = this.getAttribute('data-slot-id');
+            const rowVersion = this.getAttribute('data-row-version');
+            const timeRange = this.getAttribute('data-time');
+            holdSlot(slotId, rowVersion, timeRange, this);
+        });
+    });
+
+    function holdSlot(slotId, rowVersion, timeRange, element) {
+        // An conflict alert neu dang hien
+        document.getElementById('conflictAlert').classList.add('d-none');
+
+        fetch('/Booking/HoldSlot', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ slotId: parseInt(slotId), rowVersion: rowVersion })
+        })
+        .then(async response => {
+            const data = await response.json();
+            if (response.ok && data.success) {
+                // Giai phong slot cu neu co
+                if (data.releasedSlotId) {
+                    const prevBtn = document.getElementById('slot-btn-' + data.releasedSlotId);
+                    if (prevBtn) {
+                        prevBtn.className = 'btn w-100 py-2 slot-btn btn-outline-success';
+                        prevBtn.removeAttribute('disabled');
+                        prevBtn.querySelector('.slot-status-label').innerText = 'Còn trống';
+
+                        if (data.releasedNewRowVersion) {
+                            prevBtn.setAttribute('data-row-version', data.releasedNewRowVersion);
+                        }
+                    }
+                }
+
+                // Kich hoat slot moi
+                element.className = 'btn w-100 py-2 slot-btn btn-success active';
+                element.removeAttribute('disabled');
+                element.querySelector('.slot-status-label').innerText = 'Đang chọn';
+                if (data.newRowVersion) {
+                    element.setAttribute('data-row-version', data.newRowVersion);
+                }
+
+                // Cap nhat thanh thong bao
+                document.getElementById('heldTimeText').innerText = timeRange;
+                startCountdown(data.expiresIn);
+            } else if (response.status === 409) {
+                // Xu ly Concurrency Conflict OCC 409
+                element.className = 'btn w-100 py-2 slot-btn btn-light text-muted border disabled';
+                element.disabled = true;
+                element.querySelector('.slot-status-label').innerText = 'Người khác vừa giữ';
+
+                const conflictBox = document.getElementById('conflictAlert');
+                document.getElementById('conflictMessage').innerText = data.message || 'Xung đột phiên giữ chỗ OCC! Khung giờ này vừa được người khác giữ.';
+
+                const altContainer = document.getElementById('alternativeSlotsContainer');
+                const altBtns = document.getElementById('alternativeButtons');
+                altBtns.innerHTML = '';
+
+                if (data.alternatives && data.alternatives.length > 0) {
+                    altContainer.classList.remove('d-none');
+                    data.alternatives.forEach(alt => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.className = 'btn btn-sm btn-outline-primary';
+                        btn.innerHTML = `<i class="bi bi-clock me-1"></i>${alt.timeRange}`;
+                        btn.onclick = () => {
+                            const targetBtn = document.getElementById('slot-btn-' + alt.id);
+                            if (targetBtn) {
+                                targetBtn.click();
+                            } else {
+                                holdSlot(alt.id, alt.rowVersion, alt.timeRange, targetBtn);
+                            }
+                        };
+                        altBtns.appendChild(btn);
+                    });
+                } else {
+                    altContainer.classList.add('d-none');
+                }
+
+                conflictBox.classList.remove('d-none');
+                conflictBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                alert(data.message || 'Có lỗi xảy ra.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Lỗi kết nối khi giữ chỗ.');
+        });
+    }
+
+    function startCountdown(seconds) {
+        const alertBox = document.getElementById('countdownAlert');
+        const timerDisplay = document.getElementById('timerDisplay');
+        alertBox.classList.remove('d-none');
+
+        if (countdownInterval) clearInterval(countdownInterval);
+
+        let remaining = seconds;
+        countdownInterval = setInterval(() => {
+            const m = Math.floor(remaining / 60);
+            const s = remaining % 60;
+            timerDisplay.innerText = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+
+            if (remaining <= 0) {
+                clearInterval(countdownInterval);
+                alert('Thời gian giữ chỗ 10 phút đã hết hạn. Hệ thống tự động giải phóng khung giờ.');
+                window.location.reload();
+            }
+            remaining--;
+        }, 1000);
+    }
+</script>
+}

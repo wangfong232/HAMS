@@ -1,0 +1,92 @@
+@model HAMSPatient.Models.BookingSuccessViewModel
+@{
+    ViewData["Title"] = "Đặt Lịch Thành Công - Vé Khám Điện Tử E-Ticket";
+    string qrImageUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=180x180&data={Model.QrCodeToken}";
+}
+
+<div class="container py-4" style="max-width: 750px;">
+    <div class="text-center mb-4">
+        <div class="d-inline-flex p-3 rounded-circle bg-success-subtle text-success mb-2">
+            <i class="bi bi-check-circle-fill fs-1 text-success"></i>
+        </div>
+        <h3 class="fw-bold text-success">Đặt Lịch Khám Thành Công!</h3>
+        <p class="text-muted">Mã lịch hẹn của bạn là <strong class="text-dark fs-5">#@Model.AppointmentId</strong> (@Model.QrCodeToken)</p>
+    </div>
+
+    <!-- E-Ticket Card -->
+    <div class="card border-1 shadow-sm rounded-4 overflow-hidden mb-4" id="printableTicket">
+        <div class="card-header bg-primary text-white p-3 text-center">
+            <h5 class="mb-0 fw-bold">BỆNH VIỆN / PHÒNG KHÁM ĐA KHOA HAMS</h5>
+            <small class="opacity-75">Phiếu Đặt Khám & Vé Vào Cửa Điện Tử (E-Ticket)</small>
+        </div>
+        <div class="card-body p-4">
+            <div class="row align-items-center">
+                <!-- Ma QR -->
+                <div class="col-md-4 text-center border-end-md pb-3 pb-md-0">
+                    <img src="@qrImageUrl" alt="Mã QR Vé Khám" class="img-fluid rounded border p-2 bg-white shadow-sm" style="max-width: 170px;" />
+                    <div class="mt-2 small fw-bold text-muted font-monospace fs-6">@Model.QrCodeToken</div>
+                    <small class="text-primary d-block mt-1"><i class="bi bi-qr-code-scan me-1"></i>Quét mã tại quầy Lễ tân</small>
+                </div>
+
+                <!-- Chi tiet lich hen -->
+                <div class="col-md-8 ps-md-4">
+                    <div class="mb-2">
+                        <small class="text-muted d-block">Bệnh nhân:</small>
+                        <strong class="fs-5 text-dark">@Model.PatientName</strong> - <span class="text-muted">@Model.PatientPhone</span>
+                        <div class="small text-muted mt-1"><i class="bi bi-envelope me-1"></i>Email: <strong class="text-primary">@Model.PatientEmail</strong></div>
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted d-block">Bác sĩ khám:</small>
+                        <strong class="text-primary fs-6">@Model.AcademicTitle @Model.DoctorName</strong>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Chuyên khoa:</small>
+                            <strong>@Model.DepartmentName</strong>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Phòng khám:</small>
+                            <span class="badge bg-secondary fs-6">Phòng @Model.RoomNumber</span>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <small class="text-muted d-block">Ngày khám:</small>
+                            <strong>@Model.AppointmentDate.ToString("dd/MM/yyyy")</strong>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted d-block">Khung giờ hẹn:</small>
+                            <span class="badge bg-success fs-6">@Model.StartTime.ToString(@"hh\:mm") - @Model.EndTime.ToString(@"hh\:mm")</span>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(Model.Reason))
+                    {
+                        <div class="mb-2">
+                            <small class="text-muted d-block">Triệu chứng sơ bộ:</small>
+                            <span class="text-muted small fst-italic">@Model.Reason</span>
+                        </div>
+                    }
+
+                    <hr class="my-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Phí khám:</small>
+                        <span class="fw-bold text-danger fs-5">@Model.ConsultationFee.ToString("N0") VNĐ</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-light p-3 small text-muted text-center">
+            <i class="bi bi-info-circle me-1"></i> Email xác nhận kèm mã QR vé khám đã được gửi tới hòm thư <strong>@Model.PatientEmail</strong>. Quý khách vui lòng có mặt trước giờ hẹn <strong>15 phút</strong> và đưa mã QR này cho nhân viên lễ tân để làm thủ tục check-in vào phòng khám.
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between gap-2">
+        <a asp-action="Index" asp-controller="Home" class="btn btn-outline-secondary">
+            <i class="bi bi-house me-1"></i> Trang chủ
+        </a>
+        <button type="button" class="btn btn-outline-primary" onclick="window.print()">
+            <i class="bi bi-printer me-1"></i> In vé khám
+        </button>
+    </div>
+</div>

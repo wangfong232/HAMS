@@ -1,0 +1,88 @@
+@model HAMSPatient.Models.BookingConfirmViewModel
+@{
+    ViewData["Title"] = "Xác Nhận Đặt Lịch Khám";
+}
+
+<div class="container py-4" style="max-width: 800px;">
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="card border-1 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-primary text-white py-3 px-4">
+            <h4 class="fw-bold mb-0"><i class="bi bi-clipboard2-check me-2"></i>Phiếu Xác Nhận Đặt Lịch Khám</h4>
+        </div>
+        <div class="card-body p-4">
+            <!-- Thong tin tom tat ca hen -->
+            <div class="alert alert-light border mb-4 rounded-3 p-3">
+                <div class="row g-3">
+                    <div class="col-sm-6">
+                        <small class="text-muted d-block">Bác sĩ phụ trách:</small>
+                        <strong class="text-primary fs-5">@Model.AcademicTitle @Model.DoctorName</strong>
+                    </div>
+                    <div class="col-sm-6">
+                        <small class="text-muted d-block">Chuyên khoa / Phòng:</small>
+                        <strong>@Model.DepartmentName (Phòng @Model.RoomNumber)</strong>
+                    </div>
+                    <div class="col-sm-6">
+                        <small class="text-muted d-block">Ngày khám:</small>
+                        <strong class="text-dark">@Model.AppointmentDate.ToString("dd/MM/yyyy")</strong>
+                    </div>
+                    <div class="col-sm-6">
+                        <small class="text-muted d-block">Khung giờ hẹn:</small>
+                        <span class="badge bg-success fs-6 px-3 py-1">@Model.StartTime.ToString(@"hh\:mm") - @Model.EndTime.ToString(@"hh\:mm")</span>
+                    </div>
+                    <div class="col-12">
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">Phí khám dự kiến:</span>
+                            <span class="fw-bold text-danger fs-5">@Model.ConsultationFee.ToString("N0") VNĐ</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <form method="post" asp-action="ConfirmBooking">
+                <input type="hidden" name="SlotId" value="@Model.SlotId" />
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Họ và tên người khám</label>
+                    <input type="text" class="form-control bg-light" value="@Model.PatientName" readonly />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Số điện thoại liên hệ</label>
+                    <input type="text" class="form-control bg-light" value="@Model.PatientPhone" readonly />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Email nhận vé E-Ticket & Thông báo <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                        <input type="email" name="Email" class="form-control" value="@Model.PatientEmail" placeholder="Nhập địa chỉ email nhận vé..." required />
+                    </div>
+                    <small class="text-muted">Hệ thống sẽ gửi xác nhận kèm mã QR vé khám trực tiếp tới hòm thư này.</small>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">Lý do khám / Triệu chứng sơ bộ</label>
+                    <textarea name="Reason" class="form-control" rows="3" placeholder="Ví dụ: Đau đầu kéo dài 3 ngày, ho sốt nhẹ về chiều..."></textarea>
+                    <small class="text-muted">Mô tả triệu chứng giúp bác sĩ chuẩn bị hồ sơ bệnh án chu đáo hơn.</small>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center pt-2">
+                    <a asp-action="SelectSlot" asp-route-doctorId="@Model.DoctorId" asp-route-date="@Model.AppointmentDate.ToString("yyyy-MM-dd")" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Đổi khung giờ khác
+                    </a>
+                    <button type="submit" class="btn btn-success fw-bold px-4 py-2">
+                        <i class="bi bi-check2-circle me-1"></i> Xác nhận Đặt lịch & Nhận Vé
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

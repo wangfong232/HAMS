@@ -1,0 +1,49 @@
+## Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio cache & temporary files
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.sln.docstates
+
+## OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+## Test results
+TestResults/
+[Tt]est[Rr]esult*/
+
+## Crash dumps and symbols
+*.pdb
+*.opendb
+*.dbmdl
+
+## NuGet Packages
+*.nupkg
+packages/
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## ASP.NET Core local settings
+appsettings.*.local.json

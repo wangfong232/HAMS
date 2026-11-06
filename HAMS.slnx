@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="HAMS.Application/HAMS.Application.csproj" />
+  <Project Path="HAMS.Domain/HAMS.Domain.csproj" />
+  <Project Path="HAMS.Infrastructure/HAMS.Infrastructure.csproj" />
+  <Project Path="HAMSClinical/HAMSClinical.csproj" />
+  <Project Path="HAMSOperations/HAMSOperations.csproj" />
+  <Project Path="HAMSPatient/HAMSPatient.csproj" />
+</Solution>
