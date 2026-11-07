@@ -292,6 +292,15 @@ namespace HAMSPatient.Controllers
 
             try
             {
+                // Cập nhật email người dùng trong CSDL nếu người dùng sửa email nhận vé
+                var user = await dbContext.Users.FindAsync(userId.Value);
+                if (user != null && !string.IsNullOrWhiteSpace(targetEmail) && user.Email != targetEmail)
+                {
+                    user.Email = targetEmail;
+                    user.UpdatedAt = DateTime.UtcNow;
+                    await dbContext.SaveChangesAsync();
+                }
+
                 var appointment = await bookingService.ConfirmBookingAsync(userId.Value, model.SlotId, model.Reason, targetEmail);
                 HttpContext.Session.Remove("HeldSlotId");
                 HttpContext.Session.Remove("HeldExpiresAt");
@@ -327,6 +336,7 @@ namespace HAMSPatient.Controllers
                 return RedirectToAction(nameof(Search));
             }
 
+            string? sessionEmail = HttpContext.Session.GetString("Email");
             var model = new BookingSuccessViewModel
             {
                 AppointmentId = appt.Id,
@@ -341,7 +351,9 @@ namespace HAMSPatient.Controllers
                 ConsultationFee = appt.Doctor?.PricePerSlot ?? 150000m,
                 PatientName = appt.Patient?.User?.FullName ?? "Nguyễn Văn An",
                 PatientPhone = appt.Patient?.User?.PhoneNumber ?? "0988776655",
-                PatientEmail = appt.Patient?.User?.Email ?? HttpContext.Session.GetString("Email") ?? "patient.an@gmail.com",
+                PatientEmail = !string.IsNullOrWhiteSpace(sessionEmail)
+                    ? sessionEmail
+                    : (appt.Patient?.User?.Email ?? "patient.an@gmail.com"),
                 Reason = appt.Reason,
                 Status = appt.Status
             };

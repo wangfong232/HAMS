@@ -1,4 +1,4 @@
-﻿@model HAMS.Domain.Entities.Appointment
+@model HAMS.Domain.Entities.Appointment
 @{
     ViewData["Title"] = "Tiếp Đón & Check-In";
     var recentList = ViewBag.TodayAppointments as List<HAMS.Domain.Entities.Appointment> ?? new List<HAMS.Domain.Entities.Appointment>();
@@ -217,7 +217,7 @@
                             <td>${item.doctorName}</td>
                             <td>${item.appointmentTime}</td>
                             <td>
-                                <span class="badge badgeClass">{item.status}</span>
+                                <span class="badge ${badgeClass}">${item.status}</span>
                                 ${queueBadge}
                             </td>
                             <td class="text-end pe-4">

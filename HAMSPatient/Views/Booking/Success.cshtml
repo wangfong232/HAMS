@@ -37,7 +37,7 @@
                     </div>
                     <div class="mb-2">
                         <small class="text-muted d-block">Bác sĩ khám:</small>
-                        <strong class="text-primary fs-6">@Model.AcademicTitle @Model.DoctorName</strong>
+                        <strong class="text-primary fs-6">@(Model.DoctorName.Contains(Model.AcademicTitle) ? Model.DoctorName : $"{Model.AcademicTitle} {Model.DoctorName}")</strong>
                     </div>
                     <div class="row g-2 mb-2">
                         <div class="col-6">

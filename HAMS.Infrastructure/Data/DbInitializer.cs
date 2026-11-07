@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using HAMS.Domain.Entities;
 
 namespace HAMS.Infrastructure.Data
@@ -9,6 +10,25 @@ namespace HAMS.Infrastructure.Data
         public static void Initialize(HamsDbContext context)
         {
             context.Database.EnsureCreated();
+
+            // Auto-patch missing columns for existing local databases
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"
+                    IF NOT EXISTS (
+                        SELECT 1 FROM sys.columns 
+                        WHERE Name = N'IsReminded' 
+                        AND Object_ID = Object_ID(N'Appointments')
+                    )
+                    BEGIN
+                        ALTER TABLE Appointments ADD IsReminded BIT NOT NULL CONSTRAINT DF_Appointments_IsReminded DEFAULT 0;
+                    END
+                ");
+            }
+            catch
+            {
+                // Ignore if already applied or non-relational
+            }
 
             if (context.Departments.Any())
             {
