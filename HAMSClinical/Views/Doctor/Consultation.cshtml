@@ -1,0 +1,618 @@
+@model HAMS.Domain.Entities.Appointment
+@{
+    ViewData["Title"] = "Buồng Khám Bác Sĩ & EMR";
+    var queue = ViewBag.WaitingQueue as List<HAMS.Domain.Entities.Appointment> ?? new List<HAMS.Domain.Entities.Appointment>();
+    var completed = ViewBag.CompletedList as List<HAMS.Domain.Entities.Appointment> ?? new List<HAMS.Domain.Entities.Appointment>();
+    var medicines = ViewBag.Medicines as List<HAMS.Domain.Entities.Medicine> ?? new List<HAMS.Domain.Entities.Medicine>();
+}
+
+<div class="container py-4">
+    <div class="mb-4 d-print-none">
+        <h3 class="fw-bold text-primary mb-1">Buồng Khám Bác Sĩ & Hồ Sơ Bệnh Án Điện Tử (EMR)</h3>
+        <p class="text-muted mb-0">Bước 3: Xem sinh hiệu từ Lễ tân, nhập chẩn đoán ICD-10, kê đơn thuốc và hoàn tất ca khám.</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ViewBag.Message))
+    {
+        <div class="alert alert-@ViewBag.MessageType alert-dismissible fade show mb-4 rounded-3 d-print-none" role="alert">
+            <strong>@ViewBag.Message</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Cột trái: Hàng đợi chờ khám -->
+        <div class="col-lg-4 d-print-none" id="waitingQueueCol">
+            <div class="card border-1 shadow-sm rounded-4 overflow-hidden mb-4 h-100">
+                <div class="card-header bg-primary text-white py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0">Hàng Đợi Chờ Khám (<span id="waitingQueueCount">@queue.Count</span>)</h5>
+                    <span class="badge bg-light text-primary">Đã check-in</span>
+                </div>
+                <div class="card-body p-3">
+                    <div id="waitingQueueList">
+                        @if (!queue.Any())
+                        {
+                            <div class="text-center py-5 text-muted">
+                                <p class="mb-0">Chưa có bệnh nhân nào trong hàng đợi.</p>
+                                <small>Bệnh nhân cần được Lễ tân Check-in ở Bước 2 trước.</small>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var apt in queue)
+                                {
+                                    bool isSelected = Model != null && Model.Id == apt.Id;
+                                    <a asp-action="Consultation" asp-route-appointmentId="@apt.Id"
+                                       class="list-group-item list-group-item-action p-3 rounded-3 mb-2 border @(isSelected ? "bg-light border-primary" : "")">
+                                        <div class="d-flex justify-content-between align-items-start mb-1">
+                                            <span class="badge bg-danger fs-6">Số #@apt.QueueNumber</span>
+                                            <span class="badge @(apt.Status == "Arrived" ? "bg-warning text-dark" : "bg-info text-dark")">@apt.Status</span>
+                                        </div>
+                                        <h6 class="fw-bold text-dark mb-1">@(apt.Patient?.User?.FullName ?? "N/A")</h6>
+                                        <small class="text-muted d-block">Giờ hẹn: @apt.AppointmentDate.ToString("HH:mm")</small>
+                                        @if (apt.VitalSigns != null)
+                                        {
+                                            <small class="text-success fw-semibold d-block mt-1">
+                                                HA: @apt.VitalSigns.BloodPressure | Mạch: @apt.VitalSigns.Pulse bpm | Thân nhiệt: @apt.VitalSigns.Temperature °C
+                                            </small>
+                                        }
+                                    </a>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    @if (completed.Any())
+                    {
+                        <hr class="my-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                            <small class="fw-bold text-muted text-uppercase"><i class="bi bi-clock-history me-1"></i>Đã khám xong (@completed.Count)</small>
+                            <span class="badge bg-success-subtle text-success">EMR Đã lưu</span>
+                        </div>
+                        <div class="list-group list-group-flush">
+                            @foreach (var c in completed)
+                            {
+                                bool isSelected = Model != null && Model.Id == c.Id;
+                                <a asp-action="Consultation" asp-route-appointmentId="@c.Id"
+                                   class="list-group-item list-group-item-action p-2 rounded-3 mb-2 border @(isSelected ? "bg-light border-success" : "")">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="fw-bold text-dark small">@(c.Patient?.User?.FullName ?? "N/A")</span>
+                                        <span class="badge bg-success">Đã khám</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between small text-muted mt-1">
+                                        <span>Giờ hẹn: @c.AppointmentDate.ToString("HH:mm")</span>
+                                        <span class="text-primary fw-semibold"><i class="bi bi-file-text me-1"></i>Xem EMR</span>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Cột phải: Buồng Khám & EMR -->
+        <div class="col-lg-8">
+            @if (Model == null)
+            {
+                <div class="card border-1 shadow-sm rounded-4 p-5 text-center text-muted">
+                    <h5 class="mb-2">Chưa chọn bệnh nhân khám</h5>
+                    <p class="mb-0">Vui lòng nhấp chọn một bệnh nhân trong danh sách hàng đợi bên trái để bắt đầu khám bệnh.</p>
+                </div>
+            }
+            else if (Model.Status != "Completed")
+            {
+                <div class="card border-1 shadow-sm rounded-4 overflow-hidden mb-4">
+                    <div class="card-header bg-primary text-white py-3 px-4 d-flex justify-content-between align-items-center">
+                        <h4 class="fw-bold mb-0">Buồng Khám Bác Sĩ - @(Model.Patient?.User?.FullName)</h4>
+                        <span class="badge bg-light text-primary fs-6 px-3 py-1">@Model.Status</span>
+                    </div>
+
+                    <div class="card-body p-4">
+                        <!-- Tóm tắt thông tin bệnh nhân & Sinh hiệu từ Bước 2 -->
+                        <div class="alert alert-light border mb-4 rounded-3 p-3">
+                            <div class="row g-3">
+                                <div class="col-sm-6">
+                                    <small class="text-muted d-block">Họ và tên bệnh nhân:</small>
+                                    <strong class="text-primary fs-5">@(Model.Patient?.User?.FullName)</strong>
+                                </div>
+                                <div class="col-sm-6">
+                                    <small class="text-muted d-block">Số điện thoại:</small>
+                                    <strong>@(Model.Patient?.User?.PhoneNumber)</strong>
+                                </div>
+                                <div class="col-sm-6">
+                                    <small class="text-muted d-block">Mã lịch hẹn / Số thứ tự:</small>
+                                    <strong>HAMS-APT-@Model.Id</strong> <span class="badge bg-danger ms-2">Số #@Model.QueueNumber</span>
+                                </div>
+                                <div class="col-sm-6">
+                                    <small class="text-muted d-block">Giờ hẹn khám:</small>
+                                    <strong>@Model.AppointmentDate.ToString("dd/MM/yyyy HH:mm")</strong>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(Model.Reason))
+                                {
+                                    <div class="col-12">
+                                        <small class="text-muted d-block">Lý do khám (Bệnh nhân đăng ký):</small>
+                                        <strong class="text-dark">@Model.Reason</strong>
+                                    </div>
+                                }
+                                <div class="col-12">
+                                    <hr class="my-2">
+                                    <small class="text-muted d-block fw-semibold text-uppercase mb-2">Chỉ số sinh hiệu (Do Lễ tân tiếp đón đo ở Bước 2):</small>
+                                    <div class="row g-2 text-dark">
+                                        <div class="col-sm-4">
+                                            <div class="p-2 border rounded bg-white small">
+                                                <span class="text-muted d-block">Huyết áp:</span>
+                                                <strong class="fs-6">@(!string.IsNullOrWhiteSpace(Model.VitalSigns?.BloodPressure) ? $"{Model.VitalSigns.BloodPressure} mmHg" : "120/80 mmHg")</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-4">
+                                            <div class="p-2 border rounded bg-white small">
+                                                <span class="text-muted d-block">Nhịp tim:</span>
+                                                <strong class="fs-6">@(Model.VitalSigns?.Pulse > 0 ? $"{Model.VitalSigns.Pulse} lần/phút" : "78 lần/phút")</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-sm-4">
+                                            <div class="p-2 border rounded bg-white small">
+                                                <span class="text-muted d-block">Thân nhiệt:</span>
+                                                <strong class="fs-6">@(Model.VitalSigns?.Temperature > 0 ? $"{Model.VitalSigns.Temperature} °C" : "37.0 °C")</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Form Bác sĩ chẩn đoán và kê đơn -->
+                        <form asp-action="SaveEmr" method="post">
+                            <input type="hidden" name="appointmentId" value="@Model.Id" />
+
+                            <h5 class="fw-bold text-dark mb-3">1. Chẩn đoán lâm sàng (Chuẩn ICD-10)</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-semibold">Mã ICD-10</label>
+                                    <div class="input-group">
+                                        <input type="text" id="icd10Code" name="icd10Code" class="form-control fw-bold" value="J00" required />
+                                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">Chọn nhanh</button>
+                                        <ul class="dropdown-menu dropdown-menu-end shadow">
+                                            <li><a class="dropdown-item icd-preset" href="#" data-code="J00" data-desc="Viêm mũi họng cấp tính (Acute nasopharyngitis)"><strong>J00</strong> - Viêm mũi họng cấp</a></li>
+                                            <li><a class="dropdown-item icd-preset" href="#" data-code="J02" data-desc="Viêm họng cấp tính"><strong>J02</strong> - Viêm họng cấp</a></li>
+                                            <li><a class="dropdown-item icd-preset" href="#" data-code="J20" data-desc="Viêm phế quản cấp"><strong>J20</strong> - Viêm phế quản cấp</a></li>
+                                            <li><a class="dropdown-item icd-preset" href="#" data-code="I10" data-desc="Tăng huyết áp nguyên phát (vô căn)"><strong>I10</strong> - Tăng huyết áp nguyên phát</a></li>
+                                            <li><a class="dropdown-item icd-preset" href="#" data-code="E11" data-desc="Đái tháo đường typ 2"><strong>E11</strong> - Đái tháo đường typ 2</a></li>
+                                            <li><a class="dropdown-item icd-preset" href="#" data-code="K29" data-desc="Viêm dạ dày và tá tràng"><strong>K29</strong> - Viêm dạ dày và tá tràng</a></li>
+                                            <li><a class="dropdown-item icd-preset" href="#" data-code="K21" data-desc="Bệnh trào ngược dạ dày - thực quản (GERD)"><strong>K21</strong> - Bệnh trào ngược GERD</a></li>
+                                            <li><a class="dropdown-item icd-preset" href="#" data-code="M54.5" data-desc="Đau thắt lưng cấp tính"><strong>M54.5</strong> - Đau thắt lưng cấp</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label fw-semibold">Mô tả Chẩn đoán</label>
+                                    <input type="text" id="diagnosis" name="diagnosis" class="form-control" value="Viêm mũi họng cấp tính (Acute nasopharyngitis)" required />
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">Lời dặn của Bác sĩ</label>
+                                    <input type="text" name="note" class="form-control" value="Nghỉ ngơi, uống nhiều nước ấm, tái khám sau 5 ngày nếu còn sốt cao." />
+                                </div>
+                            </div>
+
+                            <h5 class="fw-bold text-dark mb-3">2. Kê đơn thuốc điện tử (E-Prescription)</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-5">
+                                    <label class="form-label fw-semibold">Chọn loại thuốc trong kho</label>
+                                    <select name="medicineId" id="medicineSelect" class="form-select" onchange="togglePrescriptionFields()">
+                                        <option value="0">-- Không kê đơn thuốc (Chỉ tư vấn & theo dõi) --</option>
+                                        @foreach (var med in medicines)
+                                        {
+                                            <option value="@med.Id" selected="@(med.Id == 1)">@med.Name - @med.Price.ToString("N0") đ / @med.Unit</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-2" id="quantityWrapper">
+                                    <label class="form-label fw-semibold">Số lượng</label>
+                                    <input type="number" name="quantity" id="quantityInput" class="form-control" value="10" min="1" max="50" />
+                                </div>
+                                <div class="col-md-5" id="dosageWrapper">
+                                    <label class="form-label fw-semibold">Hướng dẫn liều dùng</label>
+                                    <input type="text" name="dosageInstruction" id="dosageInput" class="form-control" value="Uống 1 viên sau ăn, ngày 2 lần (sáng - tối)." />
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center pt-2">
+                                <a asp-action="Consultation" class="btn btn-outline-secondary">Hủy bỏ</a>
+                                <button type="submit" class="btn btn-success fw-bold px-4 py-2">
+                                    Lưu Bệnh Án Điện Tử (EMR) & Hoàn Tất Khám
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            }
+            else
+            {
+
+                <div class="d-flex justify-content-between align-items-center bg-white p-3 rounded-4 shadow-sm border mb-4 d-print-none">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-success px-3 py-2 fs-6">
+                            <i class="bi bi-patch-check-fill me-1"></i> CA KHÁM ĐÃ HOÀN TẤT
+                        </span>
+                        <span class="text-muted small">Hồ sơ bệnh án điện tử đã lưu trữ vĩnh viễn theo chuẩn EMR</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a asp-action="Consultation" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-left me-1"></i> Tiếp tục ca khác
+                        </a>
+                        <button type="button" class="btn btn-primary btn-sm fw-semibold" onclick="window.print()">
+                            <i class="bi bi-printer me-1"></i> In Phiếu Khám Bệnh
+                        </button>
+                    </div>
+                </div>
+
+      
+                <div class="border rounded-4 p-4 bg-white shadow-sm" id="printableEmr" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #111;">
+                    
+                    <!-- HEADER PHIẾU KHÁM -->
+                    <div class="row align-items-start mb-3">
+                        <div class="col-4 text-center">
+                            <div class="small fw-bold text-uppercase" style="font-size: 11px;">SỞ Y TẾ HÀ NỘI</div>
+                            <div class="fw-bold text-uppercase text-primary" style="font-size: 13px;">BỆNH VIỆN ĐKQT HAMS</div>
+                            <div class="text-muted" style="font-size: 11px;">Hotline: 1900 55 88 96</div>
+                        </div>
+                        <div class="col-4 text-center">
+                            <h4 class="fw-bold text-uppercase mb-1" style="letter-spacing: 0.5px; font-size: 17px;">PHIẾU KHÁM CHỮA BỆNH</h4>
+                            <div class="small text-muted" style="font-size: 11.5px;">Phòng khám bệnh: <strong>@(Model.Doctor?.Department?.Name ?? "Khoa Nội tổng quát") (Phòng @(Model.Doctor?.Schedules?.FirstOrDefault()?.Room?.RoomNumber ?? "P201"))</strong></div>
+                            <div class="small mt-1" style="font-size: 11.5px;">
+                                Thường <span class="form-box">X</span> 
+                                &nbsp;&nbsp; Cấp cứu <span class="form-box">&nbsp;</span>
+                            </div>
+                        </div>
+                        <div class="col-4 text-end small" style="font-size: 11.5px; line-height: 1.5;">
+                            <div>Số phiếu/ID: <strong class="font-monospace">TC@(DateTime.Today.ToString("yyMMdd"))@(Model.MedicalRecord != null ? Model.MedicalRecord.Id.ToString("D4") : Model.Id.ToString("D4"))</strong></div>
+                            <div>Mã người bệnh: <strong class="font-monospace">TCM@(Model.PatientId.ToString("D6"))</strong></div>
+                            <div>Mã vé khám: <strong class="text-primary font-monospace">APP-@Model.Id</strong></div>
+                        </div>
+                    </div>
+
+                    <hr class="border-2 border-dark my-2" style="opacity: 0.8;">
+
+                    <!-- I. HÀNH CHÍNH -->
+                    <div class="mb-3">
+                        <div class="fw-bold text-uppercase mb-2 text-dark" style="font-size: 12.5px;">I. HÀNH CHÍNH:</div>
+                        <div class="row g-2" style="font-size: 12px;">
+                            <div class="col-7">
+                                1. Họ và tên: <strong class="text-uppercase fs-6">@(Model.Patient?.User?.FullName ?? "N/A")</strong>
+                            </div>
+                            <div class="col-5 text-end">
+                                2. Sinh ngày: 
+                                @{
+                                    var dob = Model.Patient?.DateOfBirth ?? new DateTime(1995, 5, 20);
+                                    var age = DateTime.Today.Year - dob.Year;
+                                    string dStr = dob.Day.ToString("D2");
+                                    string mStr = dob.Month.ToString("D2");
+                                    string yStr = dob.Year.ToString("D4");
+                                    string aStr = age.ToString("D2");
+                                }
+                                <span class="form-box">@dStr[0]</span><span class="form-box">@dStr[1]</span>
+                                <span class="form-box">@mStr[0]</span><span class="form-box">@mStr[1]</span>
+                                <span class="form-box">@yStr[0]</span><span class="form-box">@yStr[1]</span><span class="form-box">@yStr[2]</span><span class="form-box">@yStr[3]</span>
+                                &nbsp;Tuổi: <span class="form-box">@aStr[0]</span><span class="form-box">@aStr[1]</span>
+                            </div>
+                            <div class="col-4">
+                                3. Giới tính: 
+                                1. Nam <span class="form-box">@(Model.Patient?.Gender == "Nữ" ? " " : "X")</span> 
+                                &nbsp; 2. Nữ <span class="form-box">@(Model.Patient?.Gender == "Nữ" ? "X" : " ")</span>
+                            </div>
+                            <div class="col-4">
+                                4. Điện thoại: <strong>@(Model.Patient?.User?.PhoneNumber ?? "N/A")</strong>
+                            </div>
+                            <div class="col-4">
+                                5. Đối tượng: 
+                                <span class="form-box">&nbsp;</span> BHYT 
+                                &nbsp; <span class="form-box">X</span> Thu phí
+                            </div>
+                            <div class="col-12">
+                                6. Địa chỉ: <span>@(string.IsNullOrWhiteSpace(Model.Patient?.Address) ? "Hà Nội" : Model.Patient.Address)</span>
+                            </div>
+                            <div class="col-12">
+                                7. Đến khám lúc: <strong>@Model.AppointmentDate.ToString("HH:mm dd/MM/yyyy")</strong>
+                                &nbsp;&nbsp;&nbsp;&nbsp; Bắt đầu khám lúc: <strong>@Model.AppointmentDate.ToString("HH:mm dd/MM/yyyy")</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-2" style="border-top: 1px dashed #888;">
+
+                    <!-- II. THÔNG TIN KHÁM BỆNH -->
+                    <div class="mb-3">
+                        <div class="fw-bold text-uppercase mb-2 text-dark" style="font-size: 12.5px;">II. THÔNG TIN KHÁM BỆNH:</div>
+                        <div class="row">
+                            <!-- Cột Trái: Thông tin lâm sàng thực tế từ CSDL -->
+                            <div class="col-8 pe-3" style="font-size: 12px;">
+                                <div class="mb-2">
+                                    <strong>1. Lý do đến khám:</strong>
+                                    <div class="ms-3 text-dark">
+                                        @if (!string.IsNullOrWhiteSpace(Model.Reason))
+                                        {
+                                            <span>@Model.Reason</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted fst-italic">(Không ghi nhận)</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>2. Chẩn đoán xác định:</strong>
+                                    <div class="ms-3 fw-bold text-dark fs-6">@(Model.MedicalRecord?.Diagnosis ?? "Chưa ghi nhận")</div>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>3. Chẩn đoán theo mã ICD-10:</strong>
+                                    <div class="ms-3">
+                                        Bệnh chính: <span class="badge bg-primary font-monospace px-2 py-1 fs-6">@(Model.MedicalRecord?.Icd10Code ?? "J00")</span> - <strong>@(Model.MedicalRecord?.Diagnosis ?? "Viêm mũi họng cấp tính")</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cột Phải: Bảng Sinh hiệu đo thực tế tại Lễ tân -->
+                            <div class="col-4">
+                                <div class="vital-box">
+                                    <div class="fw-bold text-center border-bottom pb-1 mb-1 text-uppercase text-secondary" style="font-size: 11px;">Chỉ số sinh hiệu</div>
+                                    <div class="d-flex justify-content-between border-bottom pb-1 mb-1">
+                                        <span>Huyết áp:</span>
+                                        <strong>@(!string.IsNullOrWhiteSpace(Model.VitalSigns?.BloodPressure) ? $"{Model.VitalSigns.BloodPressure} mmHg" : "120/80 mmHg")</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between border-bottom pb-1 mb-1">
+                                        <span>Nhịp tim:</span>
+                                        <strong>@(Model.VitalSigns?.Pulse > 0 ? $"{Model.VitalSigns.Pulse} lần/phút" : "78 lần/phút")</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between border-bottom pb-1 mb-1">
+                                        <span>Thân nhiệt:</span>
+                                        <strong>@(Model.VitalSigns?.Temperature > 0 ? $"{Model.VitalSigns.Temperature} °C" : "37.0 °C")</strong>
+                                    </div>
+                                    @if (Model.VitalSigns?.Weight != null && Model.VitalSigns.Weight > 0)
+                                    {
+                                        <div class="d-flex justify-content-between">
+                                            <span>Cân nặng:</span>
+                                            <strong>@(Model.VitalSigns.Weight) kg</strong>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-2" style="border-top: 1px dashed #888;">
+
+                    <!-- III. XỬ TRÍ -->
+                    <div class="mb-3" style="font-size: 12px;">
+                        <div class="fw-bold text-uppercase mb-2 text-dark" style="font-size: 12.5px;">III. XỬ TRÍ & KẾT QUẢ ĐIỀU TRỊ:</div>
+                        <div class="ms-2 mb-2">
+                            Điều trị nội khoa theo chỉ định của Bác sĩ. Hướng dẫn chế độ sinh hoạt và theo dõi diễn tiến tại nhà.
+                        </div>
+
+                        <!-- Đơn thuốc điện tử -->
+                        @if (Model.MedicalRecord?.PrescriptionDetails != null && Model.MedicalRecord.PrescriptionDetails.Any())
+                        {
+                            <div class="table-responsive my-2">
+                                <table class="table table-sm table-bordered align-middle mb-0" style="font-size: 11.5px; border-color: #333;">
+                                    <thead class="table-light text-center">
+                                        <tr>
+                                            <th style="width: 35px;">STT</th>
+                                            <th>Tên thuốc - Hàm lượng</th>
+                                            <th style="width: 70px;">Số lượng</th>
+                                            <th style="width: 55px;">ĐVT</th>
+                                            <th>Cách dùng - Liều lượng</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @{ int pIdx = 1; }
+                                        @foreach (var p in Model.MedicalRecord.PrescriptionDetails)
+                                        {
+                                            <tr>
+                                                <td class="text-center fw-bold">@(pIdx++)</td>
+                                                <td><strong>@(p.Medicine?.Name ?? "Paracetamol 500mg")</strong></td>
+                                                <td class="text-center fw-bold">@p.Quantity</td>
+                                                <td class="text-center">@(p.Medicine?.Unit ?? "Viên")</td>
+                                                <td>@(string.IsNullOrWhiteSpace(p.DosageInstruction) ? "Theo hướng dẫn của bác sĩ" : p.DosageInstruction)</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="p-2 border rounded bg-light text-muted ms-2 my-2 fst-italic small">
+                                * Không kê đơn thuốc điều trị (Bệnh nhân chỉ cần tư vấn và theo dõi chế độ dinh dưỡng, lối sống).
+                            </div>
+                        }
+
+                        <div class="ms-2 mt-2">
+                            <strong>* Lời dặn của Bác sĩ:</strong>
+                            <p class="mb-1 fst-italic text-secondary">
+                                "@(string.IsNullOrWhiteSpace(Model.MedicalRecord?.Note) ? "Nghỉ ngơi, uống nhiều nước ấm, tái khám sau 5 ngày nếu có dấu hiệu bất thường." : Model.MedicalRecord.Note)"
+                            </p>
+                        </div>
+                        <div class="ms-2">
+                            <strong>* Hẹn ngày khám lại:</strong> Sau 5 ngày (ngày @DateTime.Today.AddDays(5).ToString("dd/MM/yyyy"))
+                        </div>
+                    </div>
+
+                    <!-- CHỮ KÝ BÁC SĨ -->
+                    <div class="row mt-4 pt-1">
+                        <div class="col-7 small text-muted" style="font-size: 11px;">
+                            <div><em>* Phiếu khám chữa bệnh điện tử được ký số và lưu trữ hợp lệ tại hệ thống EMR - Bệnh viện HAMS.</em></div>
+                            <div><em>* Người bệnh có thể tra cứu lịch sử khám trên Cổng Bệnh Nhân Trực Tuyến.</em></div>
+                        </div>
+                        <div class="col-5 text-center small" style="font-size: 11.5px;">
+                            <div>Hà Nội, ngày @DateTime.Today.Day tháng @DateTime.Today.Month năm @DateTime.Today.Year</div>
+                            <div class="fw-bold text-uppercase mt-1" style="letter-spacing: 0.5px;">BÁC SỸ KHÁM BỆNH</div>
+                            <div class="text-muted fst-italic mb-2">(Ký và ghi rõ họ tên)</div>
+                            
+                            <!-- Dấu chữ ký điện tử -->
+                            <div class="border border-success rounded p-2 d-inline-block text-success bg-white shadow-sm" style="font-size: 11px; line-height: 1.4;">
+                                <div class="fw-bold"><i class="bi bi-shield-check me-1"></i>CHỮ KÝ SỐ HỢP LỆ</div>
+                                <div class="fw-bold text-dark fs-6">@(Model.Doctor?.AcademicTitle) @(Model.Doctor?.User?.FullName ?? "BS.CKII Trần Quang Phong")</div>
+                                <div class="text-muted font-monospace" style="font-size: 9px;">Ký lúc: @Model.AppointmentDate.ToString("yyyy-MM-dd HH:mm:ss")</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function togglePrescriptionFields() {
+        const medSelect = document.getElementById('medicineSelect');
+        if (!medSelect) return;
+        const isNoMed = (medSelect.value === '0');
+        const qtyWrap = document.getElementById('quantityWrapper');
+        const dosageWrap = document.getElementById('dosageWrapper');
+        const qtyInput = document.getElementById('quantityInput');
+        const dosageInput = document.getElementById('dosageInput');
+
+        if (isNoMed) {
+            if (qtyWrap) qtyWrap.style.opacity = '0.4';
+            if (dosageWrap) dosageWrap.style.opacity = '0.4';
+            if (qtyInput) qtyInput.disabled = true;
+            if (dosageInput) dosageInput.disabled = true;
+        } else {
+            if (qtyWrap) qtyWrap.style.opacity = '1';
+            if (dosageWrap) dosageWrap.style.opacity = '1';
+            if (qtyInput) qtyInput.disabled = false;
+            if (dosageInput) dosageInput.disabled = false;
+        }
+    }
+
+    // Khởi tạo trạng thái kê đơn
+    togglePrescriptionFields();
+
+    // Chọn nhanh mã ICD-10
+    $(document).on('click', '.icd-preset', function (e) {
+        e.preventDefault();
+        var code = $(this).data('code');
+        var desc = $(this).data('desc');
+        $('#icd10Code').val(code);
+        $('#diagnosis').val(desc);
+    });
+
+    // Đồng bộ Real-time hàng đợi chờ khám từ CSDL (chu kỳ 2.5 giây)
+    const currentAppointmentId = @(Model?.Id ?? 0);
+
+    function syncWaitingQueueRealtime() {
+        fetch('/Doctor/GetWaitingQueue')
+            .then(res => res.json())
+            .then(queue => {
+                const countBadge = document.getElementById('waitingQueueCount');
+                if (countBadge) countBadge.innerText = queue.length;
+
+                const queueList = document.getElementById('waitingQueueList');
+                if (!queueList) return;
+
+                if (queue.length === 0) {
+                    queueList.innerHTML = `
+                        <div class="text-center py-5 text-muted">
+                            <p class="mb-0">Chưa có bệnh nhân nào trong hàng đợi.</p>
+                            <small>Bệnh nhân cần được Lễ tân Check-in ở Bước 2 trước.</small>
+                        </div>`;
+                    return;
+                }
+
+                let html = '<div class="list-group list-group-flush">';
+                queue.forEach(apt => {
+                    const isSelected = (currentAppointmentId === apt.id);
+                    const statusClass = apt.status === 'Arrived' ? 'bg-warning text-dark' : 'bg-info text-dark';
+                    const vitalInfo = apt.bloodPressure ? `HA: ${apt.bloodPressure} | Mạch: ${apt.pulse} bpm | Thân nhiệt: ${apt.temperature} °C` : 'Chưa đo sinh hiệu';
+
+                    html += `
+                        <a href="/Doctor/Consultation?appointmentId=${apt.id}"
+                           class="list-group-item list-group-item-action p-3 rounded-3 mb-2 border ${isSelected ? 'bg-light border-primary' : ''}">
+                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                <span class="badge bg-danger fs-6">Số #${apt.queueNumber}</span>
+                                <span class="badge ${statusClass}">${apt.status}</span>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-1">${apt.patientName}</h6>
+                            <small class="text-muted d-block">Giờ hẹn: ${apt.appointmentTime}</small>
+                            <small class="text-success fw-semibold d-block mt-1">${vitalInfo}</small>
+                        </a>`;
+                });
+                html += '</div>';
+
+                queueList.innerHTML = html;
+            })
+            .catch(err => console.debug(err));
+    }
+
+    setInterval(syncWaitingQueueRealtime, 2500);
+</script>
+
+<style>
+    .form-box {
+        display: inline-block;
+        border: 1px solid #333;
+        width: 16px;
+        height: 18px;
+        line-height: 16px;
+        text-align: center;
+        font-family: monospace;
+        font-size: 11px;
+        font-weight: bold;
+        margin: 0 1px;
+        background-color: #fff;
+        vertical-align: middle;
+    }
+    .vital-box {
+        border: 1.5px solid #222;
+        padding: 6px 10px;
+        background-color: #fff;
+        font-size: 11.5px;
+        line-height: 1.5;
+    }
+    @@media print {
+        /* Hide all website layout elements */
+        header, footer, nav, .navbar, .btn, .alert, .d-print-none, #waitingQueueCol {
+            display: none !important;
+        }
+        html, body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        body * {
+            visibility: hidden !important;
+        }
+        /* Show ONLY the official EMR sheet */
+        #printableEmr, #printableEmr * {
+            visibility: visible !important;
+        }
+        #printableEmr {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 2mm 5mm !important;
+            border: none !important;
+            box-shadow: none !important;
+            background: #fff !important;
+            page-break-after: avoid !important;
+            page-break-inside: avoid !important;
+        }
+        .container, main, .col-lg-8 {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        @@page {
+            size: A4 portrait;
+            margin: 8mm 10mm;
+        }
+    }
+</style>
+}

@@ -10,7 +10,7 @@
         <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <a asp-action="Search" class="btn btn-sm btn-light mb-2"><i class="bi bi-arrow-left"></i> Quay lại tìm kiếm</a>
-                <h3 class="fw-bold mb-1">@Model.AcademicTitle @Model.DoctorName</h3>
+                <h3 class="fw-bold mb-1">@(Model.DoctorName.Contains(Model.AcademicTitle) ? Model.DoctorName : $"{Model.AcademicTitle} {Model.DoctorName}")</h3>
                 <p class="opacity-75 mb-0">Chuyên khoa: <strong>@Model.DepartmentName</strong> | Ngày khám: <strong>@Model.SelectedDate.ToString("dd/MM/yyyy")</strong></p>
             </div>
             <div class="text-end">

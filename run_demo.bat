@@ -10,18 +10,30 @@ echo.
 
 set "ROOT_DIR=%~dp0"
 
-echo  [1/3] Khoi dong HAMSPatient  (Port 5140)...
-start "HAMSPatient (5140)" cmd /k dotnet run --project "%ROOT_DIR%HAMSPatient" --launch-profile http
-
-echo  [2/3] Khoi dong HAMSOperations (Port 5115)...
-start "HAMSOperations (5115)" cmd /k dotnet run --project "%ROOT_DIR%HAMSOperations" --launch-profile http
-
-echo  [3/3] Khoi dong HAMSClinical  (Port 5165)...
-start "HAMSClinical (5165)" cmd /k dotnet run --project "%ROOT_DIR%HAMSClinical" --launch-profile http
+echo  [0/3] Dang bien dich toan bo Solution HAMS.slnx...
+dotnet build "%ROOT_DIR%HAMS.slnx"
+if %ERRORLEVEL% neq 0 (
+    echo.
+    echo ======================================================================
+    echo  [LOI] Bien dich that bai! Vui long kiem tra lai code truoc khi chay.
+    echo ======================================================================
+    pause
+    exit /b %ERRORLEVEL%
+)
 
 echo.
-echo  Vui long doi 5 giay de cac ung dung khoi tao...
-ping 127.0.0.1 -n 6 >nul
+echo  [1/3] Khoi dong HAMSPatient  (Port 5140)...
+start "HAMSPatient (5140)" cmd /k dotnet run --project "%ROOT_DIR%HAMSPatient" --no-build --launch-profile http
+
+echo  [2/3] Khoi dong HAMSOperations (Port 5115)...
+start "HAMSOperations (5115)" cmd /k dotnet run --project "%ROOT_DIR%HAMSOperations" --no-build --launch-profile http
+
+echo  [3/3] Khoi dong HAMSClinical  (Port 5165)...
+start "HAMSClinical (5165)" cmd /k dotnet run --project "%ROOT_DIR%HAMSClinical" --no-build --launch-profile http
+
+echo.
+echo  Vui long doi 3 giay de cac ung dung khoi tao...
+ping 127.0.0.1 -n 4 >nul
 
 echo.
 echo  Dang mo 3 phan he tren trinh duyet...

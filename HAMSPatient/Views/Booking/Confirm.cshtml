@@ -22,7 +22,7 @@
                 <div class="row g-3">
                     <div class="col-sm-6">
                         <small class="text-muted d-block">Bác sĩ phụ trách:</small>
-                        <strong class="text-primary fs-5">@Model.AcademicTitle @Model.DoctorName</strong>
+                        <strong class="text-primary fs-5">@(Model.DoctorName.Contains(Model.AcademicTitle) ? Model.DoctorName : $"{Model.AcademicTitle} {Model.DoctorName}")</strong>
                     </div>
                     <div class="col-sm-6">
                         <small class="text-muted d-block">Chuyên khoa / Phòng:</small>

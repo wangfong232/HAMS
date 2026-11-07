@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Microsoft.EntityFrameworkCore;
 using HAMS.Domain.Entities;
 
 namespace HAMS.Infrastructure.Data
@@ -9,6 +10,25 @@ namespace HAMS.Infrastructure.Data
         public static void Initialize(HamsDbContext context)
         {
             context.Database.EnsureCreated();
+
+            // Auto-patch missing columns for existing local databases
+            try
+            {
+                context.Database.ExecuteSqlRaw(@"
+                    IF NOT EXISTS (
+                        SELECT 1 FROM sys.columns 
+                        WHERE Name = N'IsReminded' 
+                        AND Object_ID = Object_ID(N'Appointments')
+                    )
+                    BEGIN
+                        ALTER TABLE Appointments ADD IsReminded BIT NOT NULL CONSTRAINT DF_Appointments_IsReminded DEFAULT 0;
+                    END
+                ");
+            }
+            catch
+            {
+                // Ignore if already applied or non-relational
+            }
 
             if (context.Departments.Any())
             {
@@ -181,6 +201,38 @@ namespace HAMS.Infrastructure.Data
                         Status = "Open",
                         RowVersion = new byte[] { (byte)(i + 17), 0, 0, 0 }
                     });
+                }
+            }
+
+            context.SaveChanges();
+
+            // Clean up any duplicate schedules if parallel application startup created duplicates
+            var todaySchedules = context.DoctorSchedules
+                .Where(s => s.DoctorId == doc.Id && s.ShiftDate == today)
+                .OrderBy(s => s.Id)
+                .ToList();
+
+            var morningSchedules = todaySchedules.Where(s => s.StartTime < new TimeSpan(12, 0, 0)).ToList();
+            if (morningSchedules.Count > 1)
+            {
+                var dupMornings = morningSchedules.Skip(1).ToList();
+                foreach (var dup in dupMornings)
+                {
+                    var dupSlots = context.TimeSlots.Where(t => t.ScheduleId == dup.Id).ToList();
+                    context.TimeSlots.RemoveRange(dupSlots);
+                    context.DoctorSchedules.Remove(dup);
+                }
+            }
+
+            var afternoonSchedules = todaySchedules.Where(s => s.StartTime >= new TimeSpan(12, 0, 0)).ToList();
+            if (afternoonSchedules.Count > 1)
+            {
+                var dupAfternoons = afternoonSchedules.Skip(1).ToList();
+                foreach (var dup in dupAfternoons)
+                {
+                    var dupSlots = context.TimeSlots.Where(t => t.ScheduleId == dup.Id).ToList();
+                    context.TimeSlots.RemoveRange(dupSlots);
+                    context.DoctorSchedules.Remove(dup);
                 }
             }
 
