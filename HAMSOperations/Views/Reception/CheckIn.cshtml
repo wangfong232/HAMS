@@ -1,0 +1,238 @@
+﻿@model HAMS.Domain.Entities.Appointment
+@{
+    ViewData["Title"] = "Tiếp Đón & Check-In";
+    var recentList = ViewBag.TodayAppointments as List<HAMS.Domain.Entities.Appointment> ?? new List<HAMS.Domain.Entities.Appointment>();
+}
+
+<div class="container py-4" style="max-width: 900px;">
+    <div class="mb-4">
+        <h3 class="fw-bold text-primary mb-1">Cổng Tiếp Đón & Check-In Bệnh Nhân</h3>
+        <p class="text-muted mb-0">Bước 2: Quét mã QR vé E-Ticket, đo sinh hiệu ban đầu và cấp số thứ tự vào khám.</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ViewBag.Message))
+    {
+        <div class="alert alert-@ViewBag.MessageType alert-dismissible fade show mb-4 rounded-3" role="alert">
+            <strong>@ViewBag.Message</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Khối tìm kiếm vé khám -->
+    <div class="card border-1 shadow-sm rounded-4 overflow-hidden mb-4">
+        <div class="card-header bg-primary text-white py-3 px-4">
+            <h5 class="fw-bold mb-0">Tra Cứu Vé Khám & Tiếp Đón</h5>
+        </div>
+        <div class="card-body p-4">
+            <form asp-action="Search" method="post">
+                <label class="form-label fw-semibold">Nhập mã QR vé (ví dụ APP-1 hoặc HAMS-APT-1) hoặc Số điện thoại:</label>
+                <div class="input-group">
+                    <input type="text" name="query" class="form-control" placeholder="Nhập mã vé APP-1 hoặc SĐT 0988776655..." required />
+                    <button class="btn btn-primary fw-bold px-4" type="submit">Kiểm Tra Vé</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (Model != null)
+    {
+        <!-- Khối thông tin tiếp đón & Đo sinh hiệu -->
+        <div class="card border-1 shadow-sm rounded-4 overflow-hidden mb-4">
+            <div class="card-header bg-primary text-white py-3 px-4">
+                <h4 class="fw-bold mb-0">Phiếu Tiếp Đón & Đo Sinh Hiệu - Lịch Hẹn #@Model.Id</h4>
+            </div>
+            <div class="card-body p-4">
+                <!-- Thông tin tóm tắt lịch hẹn -->
+                <div class="alert alert-light border mb-4 rounded-3 p-3">
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Bệnh nhân:</small>
+                            <strong class="text-primary fs-5">@(Model.Patient?.User?.FullName ?? "N/A")</strong>
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Số điện thoại liên hệ:</small>
+                            <strong>@(Model.Patient?.User?.PhoneNumber ?? "N/A")</strong>
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Bác sĩ phụ trách:</small>
+                            <strong>@(Model.Doctor?.AcademicTitle) @(Model.Doctor?.User?.FullName)</strong>
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Khung giờ hẹn:</small>
+                            <span class="badge bg-success fs-6 px-3 py-1">@Model.AppointmentDate.ToString("dd/MM/yyyy HH:mm")</span>
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Trạng thái hiện tại:</small>
+                            <span class="badge @(Model.Status == "Confirmed" ? "bg-primary" : (Model.Status == "Arrived" ? "bg-warning text-dark" : "bg-success")) fs-6">
+                                @Model.Status
+                            </span>
+                            @if (Model.QueueNumber.HasValue)
+                            {
+                                <span class="badge bg-danger fs-6 ms-2">Số thứ tự khám: #@Model.QueueNumber</span>
+                            }
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Chi phí khám / Đặt cọc:</small>
+                            <span class="fw-bold text-danger">@Model.DepositFee.ToString("N0") VNĐ (Đã xác thực)</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(Model.Reason))
+                        {
+                            <div class="col-12">
+                                <small class="text-muted d-block">Triệu chứng ban đầu:</small>
+                                <span class="text-muted fst-italic">@Model.Reason</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (Model.Status == "Confirmed" || Model.Status == "Pending")
+                {
+                    <form asp-action="ConfirmCheckIn" method="post">
+                        <input type="hidden" name="appointmentId" value="@Model.Id" />
+
+                        <h5 class="fw-bold text-dark mb-3">Đo chỉ số sinh hiệu (Vital Signs)</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Huyết áp (mmHg)</label>
+                                <input type="text" name="bloodPressure" class="form-control" value="120/80" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Nhịp tim (lần/phút)</label>
+                                <input type="number" name="pulseRate" class="form-control" value="78" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Thân nhiệt (°C)</label>
+                                <input type="number" step="0.1" name="temperature" class="form-control" value="37.0" required />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Cân nặng (kg)</label>
+                                <input type="number" class="form-control" value="65" />
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center pt-2">
+                            <a asp-action="CheckIn" class="btn btn-outline-secondary">Hủy bỏ</a>
+                            <button type="submit" class="btn btn-success fw-bold px-4 py-2">
+                                Xác Nhận Check-In & Chuyển Sang [Arrived]
+                            </button>
+                        </div>
+                    </form>
+                }
+                else
+                {
+                    <div class="alert alert-info mb-0 text-center rounded-3">
+                        Bệnh nhân đã hoàn tất check-in với <strong>Số khám: #@Model.QueueNumber</strong>. Hồ sơ đang nằm trong hàng đợi của Bác sĩ.
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Bảng danh sách lịch hẹn hôm nay để chọn nhanh khi demo -->
+    <div class="card border-1 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-light py-3 px-4">
+            <h6 class="fw-bold text-muted text-uppercase mb-0">Danh Sách Lịch Hẹn Hôm Nay (Chọn Nhanh Demo)</h6>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Mã Vé</th>
+                        <th>Bệnh nhân</th>
+                        <th>SĐT</th>
+                        <th>Bác sĩ</th>
+                        <th>Giờ khám</th>
+                        <th>Trạng thái</th>
+                        <th class="text-end pe-4">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="todayAppointmentsBody">
+                    @if (!recentList.Any())
+                    {
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">Chưa có lịch hẹn nào được ghi nhận.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var item in recentList)
+                        {
+                            <tr>
+                                <td class="ps-4"><strong class="text-primary">APP-@item.Id</strong></td>
+                                <td class="fw-semibold">@(item.Patient?.User?.FullName ?? "N/A")</td>
+                                <td>@(item.Patient?.User?.PhoneNumber ?? "N/A")</td>
+                                <td>@(item.Doctor?.User?.FullName ?? "N/A")</td>
+                                <td>@item.AppointmentDate.ToString("HH:mm")</td>
+                                <td>
+                                    <span class="badge @(item.Status == "Confirmed" ? "bg-primary" : (item.Status == "Arrived" ? "bg-warning text-dark" : "bg-success"))">
+                                        @item.Status
+                                    </span>
+                                    @if (item.QueueNumber.HasValue)
+                                    {
+                                        <span class="badge bg-danger ms-1">#@item.QueueNumber</span>
+                                    }
+                                </td>
+                                <td class="text-end pe-4">
+                                    <a asp-action="CheckIn" asp-route-appointmentId="@item.Id" class="btn btn-sm btn-outline-primary fw-semibold">
+                                        Chọn nạp
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Dong bo Real-time danh sach tiep don tu CSDL (chu ky 2.5 giay)
+    function syncTodayAppointmentsRealtime() {
+        fetch('/Reception/GetTodayAppointments')
+            .then(res => res.json())
+            .then(list => {
+                const tbody = document.getElementById('todayAppointmentsBody');
+                if (!tbody) return;
+
+                if (list.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Chưa có lịch hẹn nào được ghi nhận.</td></tr>`;
+                    return;
+                }
+
+                let html = '';
+                list.forEach(item => {
+                    let badgeClass = 'bg-primary';
+                    if (item.status === 'Arrived') badgeClass = 'bg-warning text-dark';
+                    else if (item.status === 'Completed') badgeClass = 'bg-success';
+
+                    const queueBadge = item.queueNumber ? `<span class="badge bg-danger ms-1">#${item.queueNumber}</span>` : '';
+
+                    html += `
+                        <tr>
+                            <td class="ps-4"><strong class="text-primary">APP-${item.id}</strong></td>
+                            <td class="fw-semibold">${item.patientName}</td>
+                            <td>${item.phoneNumber}</td>
+                            <td>${item.doctorName}</td>
+                            <td>${item.appointmentTime}</td>
+                            <td>
+                                <span class="badge badgeClass">{item.status}</span>
+                                ${queueBadge}
+                            </td>
+                            <td class="text-end pe-4">
+                                <a href="/Reception/CheckIn?appointmentId=${item.id}" class="btn btn-sm btn-outline-primary fw-semibold">
+                                    Chọn nạp
+                                </a>
+                            </td>
+                        </tr>`;
+                });
+
+                tbody.innerHTML = html;
+            })
+            .catch(err => console.debug(err));
+    }
+
+    setInterval(syncTodayAppointmentsRealtime, 2500);
+</script>
+}
