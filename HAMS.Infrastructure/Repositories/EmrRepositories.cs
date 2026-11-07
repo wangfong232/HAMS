@@ -1,3 +1,10 @@
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using HAMS.Domain.Entities;
+using HAMS.Application.Interfaces;
+using HAMS.Infrastructure.Data;
 public class EmrRepository : IEmrRepository
  {
      private readonly HamsDbContext _context;
