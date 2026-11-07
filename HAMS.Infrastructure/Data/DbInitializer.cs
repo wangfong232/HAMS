@@ -205,6 +205,38 @@ namespace HAMS.Infrastructure.Data
             }
 
             context.SaveChanges();
+
+            // Clean up any duplicate schedules if parallel application startup created duplicates
+            var todaySchedules = context.DoctorSchedules
+                .Where(s => s.DoctorId == doc.Id && s.ShiftDate == today)
+                .OrderBy(s => s.Id)
+                .ToList();
+
+            var morningSchedules = todaySchedules.Where(s => s.StartTime < new TimeSpan(12, 0, 0)).ToList();
+            if (morningSchedules.Count > 1)
+            {
+                var dupMornings = morningSchedules.Skip(1).ToList();
+                foreach (var dup in dupMornings)
+                {
+                    var dupSlots = context.TimeSlots.Where(t => t.ScheduleId == dup.Id).ToList();
+                    context.TimeSlots.RemoveRange(dupSlots);
+                    context.DoctorSchedules.Remove(dup);
+                }
+            }
+
+            var afternoonSchedules = todaySchedules.Where(s => s.StartTime >= new TimeSpan(12, 0, 0)).ToList();
+            if (afternoonSchedules.Count > 1)
+            {
+                var dupAfternoons = afternoonSchedules.Skip(1).ToList();
+                foreach (var dup in dupAfternoons)
+                {
+                    var dupSlots = context.TimeSlots.Where(t => t.ScheduleId == dup.Id).ToList();
+                    context.TimeSlots.RemoveRange(dupSlots);
+                    context.DoctorSchedules.Remove(dup);
+                }
+            }
+
+            context.SaveChanges();
         }
 
         public static void ResetDemoData(HamsDbContext context)

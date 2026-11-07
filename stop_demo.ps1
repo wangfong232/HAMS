@@ -8,5 +8,6 @@ foreach ($p in $ports) {
         Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue
     }
 }
+Stop-Process -Name "VBCSCompiler" -Force -ErrorAction SilentlyContinue
 
-Write-Host "Da giai phong toan bo cac port thanh cong!" -ForegroundColor Green
+Write-Host "Da giai phong toan bo cac port va tien trinh bien dich thanh cong!" -ForegroundColor Green

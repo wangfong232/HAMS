@@ -96,10 +96,10 @@ namespace HAMSPatient.Controllers
         [HttpGet]
         public async Task<IActionResult> SelectSlot(int doctorId, DateTime? date)
         {
-            // Auto initialize patient demo session if empty
+            // Auto initialize patient demo session if empty (User 3 = Nguyen Van An)
             if (!HttpContext.Session.GetInt32("UserId").HasValue)
             {
-                HttpContext.Session.SetInt32("UserId", 1);
+                HttpContext.Session.SetInt32("UserId", 3);
                 HttpContext.Session.SetString("FullName", "Nguyễn Văn An");
                 HttpContext.Session.SetString("PhoneNumber", "0988776655");
             }
@@ -121,12 +121,12 @@ namespace HAMSPatient.Controllers
 
             if (heldSlotId.HasValue && !string.IsNullOrEmpty(heldExpiresAtStr))
             {
-                if (DateTime.TryParse(heldExpiresAtStr, out var heldExpiresAt))
+                if (DateTimeOffset.TryParse(heldExpiresAtStr, out var heldExpiresAt))
                 {
-                    var diff = (heldExpiresAt - DateTime.UtcNow).TotalSeconds;
+                    var diff = (heldExpiresAt - DateTimeOffset.UtcNow).TotalSeconds;
                     if (diff > 0)
                     {
-                        remainingSeconds = (int)diff;
+                        remainingSeconds = Math.Min((int)diff, 600);
                     }
                     else
                     {
@@ -190,7 +190,7 @@ namespace HAMSPatient.Controllers
             if (result.IsSuccess)
             {
                 HttpContext.Session.SetInt32("HeldSlotId", result.SlotId);
-                HttpContext.Session.SetString("HeldExpiresAt", DateTime.UtcNow.AddSeconds(result.ExpiresInSeconds).ToString("o"));
+                HttpContext.Session.SetString("HeldExpiresAt", DateTimeOffset.UtcNow.AddSeconds(result.ExpiresInSeconds).ToString("o"));
 
                 // Realtime SignalR broadcast to notify other clients
                 try
@@ -275,7 +275,7 @@ namespace HAMSPatient.Controllers
         [HttpPost]
         public async Task<IActionResult> ConfirmBooking(ConfirmBookingPostModel model)
         {
-            int? userId = HttpContext.Session.GetInt32("UserId") ?? 1;
+            int? userId = HttpContext.Session.GetInt32("UserId") ?? 3;
 
             int? heldSlotId = HttpContext.Session.GetInt32("HeldSlotId");
             if (!heldSlotId.HasValue || heldSlotId.Value != model.SlotId)
@@ -292,15 +292,6 @@ namespace HAMSPatient.Controllers
 
             try
             {
-                // Cập nhật email người dùng trong CSDL nếu người dùng sửa email nhận vé
-                var user = await dbContext.Users.FindAsync(userId.Value);
-                if (user != null && !string.IsNullOrWhiteSpace(targetEmail) && user.Email != targetEmail)
-                {
-                    user.Email = targetEmail;
-                    user.UpdatedAt = DateTime.UtcNow;
-                    await dbContext.SaveChangesAsync();
-                }
-
                 var appointment = await bookingService.ConfirmBookingAsync(userId.Value, model.SlotId, model.Reason, targetEmail);
                 HttpContext.Session.Remove("HeldSlotId");
                 HttpContext.Session.Remove("HeldExpiresAt");
@@ -321,7 +312,8 @@ namespace HAMSPatient.Controllers
             }
             catch (Exception ex)
             {
-                TempData["ErrorMessage"] = "Lỗi khi xác nhận đặt lịch: " + ex.Message;
+                var fullError = ex.InnerException != null ? $"{ex.Message} ({ex.InnerException.Message})" : ex.Message;
+                TempData["ErrorMessage"] = "Lỗi khi xác nhận đặt lịch: " + fullError;
                 return RedirectToAction(nameof(Confirm));
             }
         }
