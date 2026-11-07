@@ -2,11 +2,10 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using HAMS.Infrastructure.Data;
-using HAMS.Application.Interfaces; // Import Interface chứa hàm SendEmail
+using HAMS.Application.Interfaces;
+using HAMS.Domain.Entities;
 
 namespace HAMS.Infrastructure.BackgroundWorkers
 {
@@ -27,42 +26,45 @@ namespace HAMS.Infrastructure.BackgroundWorkers
             {
                 try
                 {
-                    // 1. Tạo Scope ảo để Resolve DbContext và EmailService
                     using var scope = _serviceProvider.CreateScope();
-                    var db = scope.ServiceProvider.GetRequiredService<HamsDbContext>();
+
+                    var appointmentRepo = scope.ServiceProvider.GetRequiredService<IAppointmentRepository>();
+                    var notificationRepo = scope.ServiceProvider.GetRequiredService<INotificationRepository>();
                     var emailService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-                    // 2. Quét các ca khám ngày mai (Status = Confirmed vì DB Seed của bạn gán Confirmed)
-                    var tomorrow = DateTime.Today.AddDays(1);
+                    var appointmentsToRemind = await appointmentRepo.GetAppointmentsInNext24h();
 
-                    var appointmentsToRemind = await db.Appointments
-                        .Include(a => a.Patient).ThenInclude(p => p.User) // Join bảng User để lấy Email
-                        .Where(a => a.AppointmentDate.Date == tomorrow && a.Status == "Confirmed" && !a.IsReminded)
-                        .ToListAsync(stoppingToken);
-
-                    // 3. Xử lý gửi thư
                     if (appointmentsToRemind.Any())
                     {
                         foreach (var appt in appointmentsToRemind)
                         {
                             var patientEmail = appt.Patient?.User?.Email;
+                            var patientUserId = appt.Patient?.UserId ?? 1;
 
                             if (!string.IsNullOrEmpty(patientEmail))
                             {
-                                // Tái sử dụng hàm Template HTML xịn xò của bạn
                                 await emailService.SendBookingConfirmationAsync(
                                     patientEmail,
                                     appt.Id,
                                     appt.AppointmentDate,
-                                    $"HAMS-QR-APP-{appt.Id}" // Data QR giả lập
+                                    $"HAMS-QR-APP-{appt.Id}"
                                 );
+
+                                var notif = new Notification
+                                {
+                                    UserId = patientUserId,
+                                    Title = "Nhắc lịch khám",
+                                    Message = $"Bạn có lịch khám (Mã {appt.Id}) vào lúc {appt.AppointmentDate:dd/MM/yyyy HH:mm}.",
+                                    Type = "EmailReminder",
+                                    IsRead = false
+                                };
+                                await notificationRepo.AddAsync(notif);
                             }
 
-                            // Đánh dấu để không spam
                             appt.MarkAsReminded();
+                            await appointmentRepo.UpdateAsync(appt);
                         }
 
-                        await db.SaveChangesAsync(stoppingToken);
                         Console.WriteLine($">>> [HỆ THỐNG] Đã quét và gửi {appointmentsToRemind.Count} email nhắc lịch.");
                     }
                 }
@@ -71,7 +73,6 @@ namespace HAMS.Infrastructure.BackgroundWorkers
                     Console.WriteLine($"[ReminderWorker ERROR]: {ex.Message}");
                 }
 
-                // Chạy mỗi 15 giây để test lúc bảo vệ
                 await Task.Delay(TimeSpan.FromSeconds(15), stoppingToken);
             }
         }
