@@ -12,6 +12,8 @@ namespace HAMS.Application.Interfaces
         Task<Patient?> GetPatientByUserIdAsync(int userId);
         Task<Appointment> CreateAppointmentAsync(int patientId, int slotId, string? reason);
         Task<Appointment?> GetAppointmentDetailsAsync(int appointmentId);
+        Task<List<Appointment>> GetAppointmentsInNext24h();
+        Task UpdateAsync(Appointment appointment);
     }
 
     public interface ITimeSlotRepository
@@ -52,5 +54,10 @@ namespace HAMS.Application.Interfaces
     {
         Task SendEmailAsync(string toEmail, string subject, string body);
         Task SendBookingConfirmationAsync(string toEmail, int appointmentId, DateTime appointmentTime, string qrCodeUrl);
+    }
+
+    public interface INotificationRepository
+    {
+        Task AddAsync(Notification notification);
     }
 }

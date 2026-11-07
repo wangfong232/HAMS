@@ -16,6 +16,7 @@ namespace HAMS.Domain.Entities
         public int RescheduledCount { get; set; } = 0;
         public decimal DepositFee { get; set; }
         public bool IsRefunded { get; set; } = false;
+        public bool IsReminded { get; set; } = false;
 
         // Audit Log & Reception Queue
         public int? CheckedInByReceptionistId { get; set; }
@@ -52,6 +53,12 @@ namespace HAMS.Domain.Entities
         public void MarkAsConfirmed()
         {
             Status = "Confirmed";
+            UpdatedAt = DateTime.UtcNow;
+        }
+
+        public void MarkAsReminded()
+        {
+            IsReminded = true;
             UpdatedAt = DateTime.UtcNow;
         }
 
