@@ -230,7 +230,37 @@ namespace HAMS.Infrastructure.Repositories
         {
             return await FindAppointmentById(appointmentId);
         }
+
+        public async Task<List<Appointment>> GetAppointmentsInNext24h()
+        {
+            var tomorrow = DateTime.Today.AddDays(1);
+            return await _context.Appointments
+                .Include(a => a.Patient).ThenInclude(p => p.User)
+                .Where(a => a.AppointmentDate.Date == tomorrow && a.Status == "Confirmed" && !a.IsReminded)
+                .ToListAsync();
+        }
+
+        public async Task UpdateAsync(Appointment appointment)
+        {
+            _context.Appointments.Update(appointment);
+            await _context.SaveChangesAsync();
+        }
     }
 
-    
+    public class NotificationRepository : INotificationRepository
+    {
+        private readonly HamsDbContext _context;
+
+        public NotificationRepository(HamsDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task AddAsync(Notification notification)
+        {
+            await _context.Notifications.AddAsync(notification);
+            await _context.SaveChangesAsync();
+        }
+    }
+
 }
